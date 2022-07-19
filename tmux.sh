@@ -1,6 +1,6 @@
 #!/bin/bash
 
-session='%appname%'
+session='periodic-speech-synthesis'
 
 tmux new -d -s $session 'npm run watch'
 #tmux send-keys -t 'watch' 'npm run watch' C-m

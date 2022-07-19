@@ -5,9 +5,17 @@ import '@material/mwc-button'
 import '@material/mwc-textarea'
 import { TextArea } from '@material/mwc-textarea'
 // import '@material/mwc-icon-button'
-// import '@material/mwc-dialog'
+import '@material/mwc-dialog'
+import { Dialog } from '@material/mwc-dialog'
+import '@material/mwc-slider'
+import { Slider } from '@material/mwc-slider'
 // import '@material/mwc-textfield'
 // import '@material/mwc-checkbox'
+import { isFullJapanese } from "asian-regexps";
+import { speakJapanese } from './speech'
+import copyToClipBoard from "@vdegenne/clipboard-copy";
+import { getExactSearch } from 'japanese-data-module';
+import { playJapaneseAudio } from './util'
 
 declare global {
   interface Window {
@@ -21,8 +29,12 @@ export class AppContainer extends LitElement {
   @property({ type: Boolean, reflect: true }) running = false
 
   @state() private _wordsList: string[] = []
+  @state() pauseTimeS = 20
+  private _timeout?: NodeJS.Timeout;
 
   @query('mwc-textarea') textarea!: TextArea;
+  @query('mwc-slider') slider!: Slider;
+  @query('mwc-dialog') dialog!: Dialog;
 
   static styles = css`
   #startButton {
@@ -33,6 +45,7 @@ export class AppContainer extends LitElement {
   }
   mwc-textarea {
     width: 100%;
+    margin-bottom: 12px;
   }
   `
 
@@ -40,9 +53,29 @@ export class AppContainer extends LitElement {
     return html`
     <mwc-textarea rows=12
       @keyup=${(e) => {this.onTextAreaKeyup(e)}}></mwc-textarea>
+
     <mwc-button id=startButton raised
       @click=${()=>{this.toggleStart()}}>${this.running ? 'stop' : 'start'}</mwc-button>
-    <mwc-button @click=${()=>{this.onFetchRemoteButtonClick()}}>remote data</mwc-button>
+    <mwc-button outlined @click=${()=>{this.onFetchRemoteButtonClick()}}>remote data</mwc-button>
+    <mwc-button outlined @click=${()=>{this.onCopyListButtonClick()}}>copy list</mwc-button>
+    <mwc-button outlined @click=${() => { window.open('https://github.com/vdegenne/periodic-speech-synthesis/blob/master/docs/data.json', '_blank')}}>github</mwc-button>
+
+
+    <mwc-dialog style="--mdc-dialog-min-width:calc(100vw - 24px)"
+        @opened=${e=>{this.slider.layout()}}>
+      <p>pause between (seconds)</p>
+      <mwc-slider
+        discrete
+        withTickMarks
+        min=5
+        max=100
+        value=${this.pauseTimeS}
+        @change=${e=>{this.pauseTimeS = e.detail.value}}
+      ></mwc-slider>
+
+      <mwc-button unelevated slot=primaryAction
+        @click=${()=>{this.toggleStart()}}>start</mwc-button>
+    </mwc-dialog>
     `
   }
   protected firstUpdated(_changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>): void {
@@ -51,6 +84,11 @@ export class AppContainer extends LitElement {
       this.textarea.value  = this._wordsList.join('\n')
     })
   }
+
+  onCopyListButtonClick () {
+    copyToClipBoard(JSON.stringify(this._wordsList))
+  }
+
   onTextAreaKeyup(e: KeyboardEvent) {
     if (this.running && this.textarea.value.length == 0) {
       this.toggleStart()
@@ -62,10 +100,20 @@ export class AppContainer extends LitElement {
 
   toggleStart() {
     if (this.running) {
+      this.clearTimeout()
       this.running = false
     }
     else {
-      this.running = true
+      if (this.dialog.open) {
+        this.running = true
+        this.playOneWord()
+        this.runTimeout()
+        this.dialog.close()
+      }
+      else {
+        this.dialog.show()
+      }
+      // this.running = true
     }
   }
 
@@ -110,5 +158,32 @@ export class AppContainer extends LitElement {
       this.textarea.value = this._wordsList.join('\n')
       // this.saveWordsList()
     } catch (e) {}
+  }
+
+  runTimeout () {
+    if (!this.running) { return }
+
+    this._timeout = setTimeout(async () => {
+      if (this.running) {
+        await this.playOneWord()
+        if (this.running) {
+          this.runTimeout()
+        }
+      }
+    }, this.pauseTimeS * 1000)
+  }
+
+  clearTimeout () {
+    if (this._timeout) {
+      clearTimeout(this._timeout)
+      this._timeout = undefined
+    }
+  }
+
+  async playOneWord () {
+    const word = this._wordsList[~~(Math.random() * this._wordsList.length)]
+    if (word && isFullJapanese(word)) {
+      await playJapaneseAudio(word)
+    }
   }
 }

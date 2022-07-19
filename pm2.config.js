@@ -1,6 +1,6 @@
 module.exports = {
   apps: [{
-    name: '%appname%',
+    name: 'periodic-speech-synthesis',
     script: 'server.js',
     watch: 'server.js'
   }]
