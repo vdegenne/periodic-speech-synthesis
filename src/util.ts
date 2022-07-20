@@ -42,7 +42,7 @@ export function createAudioElementFromBlob(blob: Blob) {
 
 export async function playJapaneseAudio(word: string) {
   try {
-    if (word.length > 6 || getExactSearch(word) == null) { throw new Error; }
+    if (word.length > 6) { throw new Error; }
     await playJapanese(word)
   } catch (e) {
     await speakJapanese(word)
