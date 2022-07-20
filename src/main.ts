@@ -1,4 +1,4 @@
-import { LitElement, html, css, PropertyValueMap } from 'lit'
+import { LitElement, html, css, PropertyValueMap, nothing } from 'lit'
 import { customElement, property, query, state } from 'lit/decorators.js'
 import '@material/mwc-snackbar'
 import '@material/mwc-button'
@@ -40,6 +40,7 @@ export class AppContainer extends LitElement {
   private _historyList: string[] = [];
   @state() pauseTimeS = 60;
   private _timeout?: NodeJS.Timeout;
+  @state() lastWord?: string;
 
   @query('mwc-textarea') textarea!: TextArea;
   @query('mwc-slider') slider!: Slider;
@@ -88,6 +89,9 @@ export class AppContainer extends LitElement {
     <mwc-button outlined @click=${()=>{this.onFetchRemoteButtonClick()}}>remote data</mwc-button>
     <mwc-button outlined @click=${()=>{this.onCopyListButtonClick()}}>copy app data</mwc-button>
     <mwc-button outlined @click=${() => { window.open('https://github.com/vdegenne/periodic-speech-synthesis/blob/master/docs/data.json', '_blank')}}>github</mwc-button>
+    ${this.lastWord ? html`<mwc-button oultined
+        @click=${()=>{playJapaneseAudio(this.lastWord!)}}>${this.lastWord}</mwc-button>`
+    : nothing}
 
 
     <mwc-dialog style="--mdc-dialog-min-width:calc(100vw - 24px)"
@@ -259,5 +263,6 @@ export class AppContainer extends LitElement {
       await playJapaneseAudio(word)
     }
     this._historyList.push(word)
+    this.lastWord = word
   }
 }

@@ -42,8 +42,20 @@ export function createAudioElementFromBlob(blob: Blob) {
 
 export async function playJapaneseAudio(word: string) {
   try {
-    if (word.length > 6) { throw new Error; }
-    await playJapanese(word)
+    let hiragana
+    const search = getExactSearch(word)
+    if (search && search[4]) {
+      hiragana = search[4]
+    }
+    if (hiragana && hiragana.length < 8) {
+      await playJapanese(hiragana)
+    }
+    else if (word.length < 8) {
+      await playJapanese(word)
+    }
+    else {
+      throw new Error;
+    }
   } catch (e) {
     await speakJapanese(word)
   }
