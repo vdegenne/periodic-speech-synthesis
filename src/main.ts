@@ -198,6 +198,7 @@ export class AppContainer extends LitElement {
     }
     const word = candidates[~~(Math.random() * candidates.length)]
     if (word && isFullJapanese(word)) {
+      document.title = word
       await playJapaneseAudio(word)
     }
     this._historyList.push(word)
