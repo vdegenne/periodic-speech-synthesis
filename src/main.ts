@@ -12,10 +12,11 @@ import { Slider } from '@material/mwc-slider'
 // import '@material/mwc-textfield'
 // import '@material/mwc-checkbox'
 import { isFullJapanese } from "asian-regexps";
-import { speakJapanese } from './speech'
 import copyToClipBoard from "@vdegenne/clipboard-copy";
-import { getExactSearch } from 'japanese-data-module';
 import { playJapaneseAudio } from './util'
+import '@material/mwc-select'
+import '@material/mwc-list'
+import { Select } from '@material/mwc-select'
 
 declare global {
   interface Window {
@@ -24,18 +25,25 @@ declare global {
   }
 }
 
+type Project = {
+  name: string,
+  wordsList: string[]
+}
+
 @customElement('app-container')
 export class AppContainer extends LitElement {
   @property({ type: Boolean, reflect: true }) running = false
 
-  @state() private _wordsList: string[] = []
-  private _historyList: string[] = []
-  @state() pauseTimeS = 20
+  @state() private projects: Project[] = [];
+  @state() private selectedProjectIndex = 0
+  private _historyList: string[] = [];
+  @state() pauseTimeS = 60;
   private _timeout?: NodeJS.Timeout;
 
   @query('mwc-textarea') textarea!: TextArea;
   @query('mwc-slider') slider!: Slider;
   @query('mwc-dialog') dialog!: Dialog;
+  @query('mwc-select') select!: Select;
 
   static styles = css`
   #startButton {
@@ -54,17 +62,27 @@ export class AppContainer extends LitElement {
   mwc-dialog mwc-button {
     --mdc-theme-primary: black;
   }
+  mwc-select {
+    --mdc-theme-primary: black;
+  }
   `
 
   render () {
     return html`
+    <mwc-select style="--mdc-theme-surface: white"
+      @selected=${e=>{this.onProjectSelectChange(e)}}>
+      ${this.projects.map(p => {
+        return html`<mwc-list-item value=${p.name}>${p.name}</mwc-list-item>`
+      })}
+    </mwc-select>
+
     <mwc-textarea rows=12
       @keyup=${(e) => {this.onTextAreaKeyup(e)}}></mwc-textarea>
 
     <mwc-button id=startButton raised
       @click=${()=>{this.toggleStart()}}>${this.running ? 'stop' : 'start'}</mwc-button>
     <mwc-button outlined @click=${()=>{this.onFetchRemoteButtonClick()}}>remote data</mwc-button>
-    <mwc-button outlined @click=${()=>{this.onCopyListButtonClick()}}>copy list</mwc-button>
+    <mwc-button outlined @click=${()=>{this.onCopyListButtonClick()}}>copy app data</mwc-button>
     <mwc-button outlined @click=${() => { window.open('https://github.com/vdegenne/periodic-speech-synthesis/blob/master/docs/data.json', '_blank')}}>github</mwc-button>
 
 
@@ -85,18 +103,29 @@ export class AppContainer extends LitElement {
     </mwc-dialog>
     `
   }
-  protected async firstUpdated(_changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>): void {
-    this.getWordsList().then(result => {
-      this._wordsList = result
-      this.textarea.value  = this._wordsList.join('\n')
+
+  protected async firstUpdated(_changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>) {
+    this.getData().then(async data => {
+      this.projects = data
+      await this.select.updateComplete
+      this.select.select(0)
+      // this.textarea.value  = this._wordsList.join('\n')
     })
 
     await this.textarea.updateComplete
     // this.textarea.shadowRoot?.querySelector('textarea')?.style.backgroundColor = 'black'
   }
 
+  onProjectSelectChange (e) {
+    if (this.running) {
+      this.toggleStart()
+    }
+    this.selectedProjectIndex = e.detail.index;
+    this.textarea.value = this.projects[this.selectedProjectIndex].wordsList.join('\n')
+  }
+
   onCopyListButtonClick () {
-    copyToClipBoard(JSON.stringify(this._wordsList))
+    copyToClipBoard(JSON.stringify(this.projects))
   }
 
   onTextAreaKeyup(e: KeyboardEvent) {
@@ -105,7 +134,7 @@ export class AppContainer extends LitElement {
     }
 
     this.buildWordsListFromTextArea()
-    this.saveWordsList()
+    this.saveData()
   }
 
   toggleStart() {
@@ -116,9 +145,9 @@ export class AppContainer extends LitElement {
     else {
       if (this.dialog.open) {
         this.running = true
+        this.dialog.close()
         this.playOneWord()
         this.runTimeout()
-        this.dialog.close()
       }
       else {
         this.dialog.show()
@@ -130,30 +159,31 @@ export class AppContainer extends LitElement {
   buildWordsListFromTextArea () {
     const value = this.textarea.value
     if (value) {
-      this._wordsList = value.split('\n')
+      // this._wordsList = value.split('\n')
+      this.projects[this.selectedProjectIndex].wordsList = value.split('\n')
     }
   }
 
-  async getWordsList () {
-    let list = []
+  async getData () {
+    let projects: Project[] = [{ name: 'default', wordsList: [] }] // default
     if (localStorage.getItem('periodic-speech-synthesis:data')) {
-      list = JSON.parse(localStorage.getItem('periodic-speech-synthesis:data')!)
+      projects = JSON.parse(localStorage.getItem('periodic-speech-synthesis:data')!)
     }
 
-    if (!list || list.length == 0) {
+    if (!projects || (projects.length == 1 && projects[0].wordsList.length == 0)) {
       try {
-        list = await this.getDataFromRemote()
+        projects = await this.getDataFromRemote()
       } catch (e) {
         // something went wrong during the fetch
         // ignore
       }
     }
 
-    return list
+    return projects
   }
 
-  saveWordsList () {
-    localStorage.setItem('periodic-speech-synthesis:data', JSON.stringify(this._wordsList))
+  saveData () {
+    localStorage.setItem('periodic-speech-synthesis:data', JSON.stringify(this.projects))
   }
 
   async getDataFromRemote () {
@@ -164,8 +194,11 @@ export class AppContainer extends LitElement {
 
   async onFetchRemoteButtonClick () {
     try {
-      this._wordsList = await this.getDataFromRemote()
-      this.textarea.value = this._wordsList.join('\n')
+      this.projects = await this.getDataFromRemote()
+      // await this.select.updateComplete
+      // setTimeout(()=>this.select.select(0), 1000)
+      this.select.select(0)
+      // this.textarea.value = this._wordsList.join('\n')
       // this.saveWordsList()
     } catch (e) {}
   }
@@ -191,10 +224,10 @@ export class AppContainer extends LitElement {
   }
 
   async playOneWord () {
-    let candidates = this._wordsList.filter(w=>!this._historyList.includes(w))
+    let candidates = this.projects[this.selectedProjectIndex].wordsList.filter(w=>!this._historyList.includes(w))
     if (candidates.length == 0) {
       this._historyList = []
-      candidates = this._wordsList
+      candidates = this.projects[this.selectedProjectIndex].wordsList
     }
     const word = candidates[~~(Math.random() * candidates.length)]
     if (word && isFullJapanese(word)) {
