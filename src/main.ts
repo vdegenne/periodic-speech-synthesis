@@ -155,6 +155,11 @@ export class AppContainer extends LitElement {
           jisho(this.currentWord)
         }
       }
+      if (e.code == 'KeyS') {
+        if (this.currentWord) {
+          playJapaneseAudio(this.currentWord)
+        }
+      }
     })
   }
 
