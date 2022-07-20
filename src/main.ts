@@ -29,6 +29,7 @@ export class AppContainer extends LitElement {
   @property({ type: Boolean, reflect: true }) running = false
 
   @state() private _wordsList: string[] = []
+  private _historyList: string[] = []
   @state() pauseTimeS = 20
   private _timeout?: NodeJS.Timeout;
 
@@ -46,6 +47,12 @@ export class AppContainer extends LitElement {
   mwc-textarea {
     width: 100%;
     margin-bottom: 12px;
+    --mdc-text-field-fill-color: #222;
+    --mdc-text-field-ink-color: white;
+  }
+
+  mwc-dialog mwc-button {
+    --mdc-theme-primary: black;
   }
   `
 
@@ -78,11 +85,14 @@ export class AppContainer extends LitElement {
     </mwc-dialog>
     `
   }
-  protected firstUpdated(_changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>): void {
+  protected async firstUpdated(_changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>): void {
     this.getWordsList().then(result => {
       this._wordsList = result
       this.textarea.value  = this._wordsList.join('\n')
     })
+
+    await this.textarea.updateComplete
+    // this.textarea.shadowRoot?.querySelector('textarea')?.style.backgroundColor = 'black'
   }
 
   onCopyListButtonClick () {
@@ -181,9 +191,15 @@ export class AppContainer extends LitElement {
   }
 
   async playOneWord () {
-    const word = this._wordsList[~~(Math.random() * this._wordsList.length)]
+    let candidates = this._wordsList.filter(w=>!this._historyList.includes(w))
+    if (candidates.length == 0) {
+      this._historyList = []
+      candidates = this._wordsList
+    }
+    const word = candidates[~~(Math.random() * candidates.length)]
     if (word && isFullJapanese(word)) {
       await playJapaneseAudio(word)
     }
+    this._historyList.push(word)
   }
 }
