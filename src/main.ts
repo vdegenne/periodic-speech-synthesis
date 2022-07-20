@@ -3,7 +3,7 @@ import { customElement, property, query, state } from 'lit/decorators.js'
 import '@material/mwc-snackbar'
 import '@material/mwc-button'
 import '@material/mwc-icon-button'
-import '@material/mwc-textarea'
+// import '@material/mwc-textarea'
 import { TextArea } from '@material/mwc-textarea'
 // import '@material/mwc-icon-button'
 import '@material/mwc-dialog'
@@ -14,7 +14,7 @@ import { Slider } from '@material/mwc-slider'
 // import '@material/mwc-checkbox'
 import { isFullJapanese } from "asian-regexps";
 import copyToClipBoard from "@vdegenne/clipboard-copy";
-import { playJapaneseAudio } from './util'
+import { googleImageSearch, jisho, playJapaneseAudio } from './util'
 import '@material/mwc-select'
 import '@material/mwc-list'
 import { Select } from '@material/mwc-select'
@@ -40,9 +40,9 @@ export class AppContainer extends LitElement {
   private _historyList: string[] = [];
   @state() pauseTimeS = 60;
   private _timeout?: NodeJS.Timeout;
-  @state() lastWord?: string;
+  @state() currentWord?: string;
 
-  @query('mwc-textarea') textarea!: TextArea;
+  @query('textarea') textarea!: HTMLTextAreaElement;
   @query('mwc-slider') slider!: Slider;
   @query('mwc-dialog') dialog!: Dialog;
   @query('mwc-select') select!: Select;
@@ -60,6 +60,16 @@ export class AppContainer extends LitElement {
     --mdc-text-field-fill-color: #222;
     --mdc-text-field-ink-color: white;
   }
+  textarea {
+    display: block;
+    border: none;
+    width: 100vw;
+    box-sizing: border-box;
+    resize: vertical;
+    font-size: 2em;
+    background-color: #222;
+    color: white;
+  }
 
   mwc-dialog mwc-button {
     --mdc-theme-primary: black;
@@ -67,12 +77,17 @@ export class AppContainer extends LitElement {
   mwc-select {
     --mdc-theme-primary: black;
   }
+  #word {
+    background-color:#222;color:white;border-radius:25px;display: flex;align-items: center;padding: 0 19px;
+  }
+  #word > mwc-icon-button {
+  }
   `
 
   render () {
     return html`
     <div style="display:flex;align-items:center">
-      <mwc-select style="--mdc-theme-surface: white"
+      <mwc-select style="--mdc-theme-surface: white;--mdc-select-fill-color:#222;--mdc-select-ink-color:white"
         @selected=${e=>{this.onProjectSelectChange(e)}}>
         ${this.projects.map(p => {
           return html`<mwc-list-item value=${p.name}>${p.name}</mwc-list-item>`
@@ -81,16 +96,22 @@ export class AppContainer extends LitElement {
       <mwc-icon-button icon=add @click=${()=>{this.addNewProject()}}></mwc-icon-button>
     </div>
 
-    <mwc-textarea rows=12
-      @keyup=${(e) => {this.onTextAreaKeyup(e)}}></mwc-textarea>
-
-    <mwc-button id=startButton raised
-      @click=${()=>{this.toggleStart()}}>${this.running ? 'stop' : 'start'}</mwc-button>
-    <mwc-button outlined @click=${()=>{this.onFetchRemoteButtonClick()}}>remote data</mwc-button>
-    <mwc-button outlined @click=${()=>{this.onCopyListButtonClick()}}>copy app data</mwc-button>
-    <mwc-button outlined @click=${() => { window.open('https://github.com/vdegenne/periodic-speech-synthesis/blob/master/docs/data.json', '_blank')}}>github</mwc-button>
-    ${this.lastWord ? html`<mwc-button oultined
-        @click=${()=>{playJapaneseAudio(this.lastWord!)}}>${this.lastWord}</mwc-button>`
+    <textarea rows=12
+      @keyup=${(e) => {this.onTextAreaKeyup(e)}}></textarea><div id=controls>
+      <mwc-button id=startButton raised
+        @click=${()=>{this.toggleStart()}}>${this.running ? 'stop' : 'start'}</mwc-button>
+      <mwc-button outlined @click=${()=>{this.onFetchRemoteButtonClick()}}>remote data</mwc-button>
+      <mwc-button outlined @click=${()=>{this.onCopyListButtonClick()}}>copy app data</mwc-button>
+      <mwc-button outlined @click=${() => { window.open('https://github.com/vdegenne/periodic-speech-synthesis/blob/master/docs/data.json', '_blank')}}>github</mwc-button>
+    </div>
+    ${this.currentWord ? html`
+      <div id="word">
+        <span style="margin-right:12px;font-size:2em">${this.currentWord}</span>
+        <mwc-icon-button icon=volume_up @click=${()=>{playJapaneseAudio(this.currentWord!)}}></mwc-icon-button>
+        <mwc-icon-button icon=image @click=${()=>{googleImageSearch(this.currentWord!)}}></mwc-icon-button>
+        <!-- <mwc-button oultined
+            @click=${()=>{playJapaneseAudio(this.currentWord!);this.textarea.focus()}}>${this.currentWord}</mwc-button> -->
+      </div>`
     : nothing}
 
 
@@ -120,8 +141,21 @@ export class AppContainer extends LitElement {
       // this.textarea.value  = this._wordsList.join('\n')
     })
 
-    await this.textarea.updateComplete
+    // await this.textarea.updateComplete
     // this.textarea.shadowRoot?.querySelector('textarea')?.style.backgroundColor = 'black'
+
+    window.addEventListener('keydown', (e) => {
+      if (e.code == 'KeyA') {
+        if (this.currentWord) {
+          googleImageSearch(this.currentWord)
+        }
+      }
+      if (e.code == 'KeyG') {
+        if (this.currentWord) {
+          jisho(this.currentWord)
+        }
+      }
+    })
   }
 
   onProjectSelectChange (e) {
@@ -258,11 +292,28 @@ export class AppContainer extends LitElement {
       candidates = this.projects[this.selectedProjectIndex].wordsList
     }
     const word = candidates[~~(Math.random() * candidates.length)]
+    this.currentWord = word
     if (word && isFullJapanese(word)) {
       document.title = word
       await playJapaneseAudio(word)
     }
     this._historyList.push(word)
-    this.lastWord = word
+
+    await this.updateComplete
+    // this.selectLineFromWord(word)
+  }
+
+  selectLineFromWord (word: string) {
+    const lines = this.textarea.value.split('\n')
+    const wordLineIndex = lines.indexOf(word)
+    const linesBefore = lines.slice(0, wordLineIndex)
+    let selectionStart = linesBefore.join(' ').length
+    if (selectionStart > 0) { selectionStart++; }
+    const selectionEnd = selectionStart + word.length
+    // this.textarea.focus()
+    this.textarea.setSelectionRange(selectionStart, selectionStart)
+    this.textarea.blur()
+    this.textarea.focus()
+    this.textarea.setSelectionRange(selectionStart, selectionEnd)
   }
 }

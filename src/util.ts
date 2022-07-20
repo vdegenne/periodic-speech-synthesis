@@ -60,3 +60,13 @@ export async function playJapaneseAudio(word: string) {
     await speakJapanese(word)
   }
 }
+
+
+
+export function googleImageSearch (word: string) {
+  window.open(`http://www.google.com/search?q=${encodeURIComponent(word)}&tbm=isch`, '_blank')
+}
+export function jisho(word: string) {
+  // window.open(`https://jisho.org/search/${encodeURIComponent(word)}%20%23kanji`, '_blank')
+  window.open(`https://jisho.org/search/${encodeURIComponent(word)}`, '_blank')
+}
