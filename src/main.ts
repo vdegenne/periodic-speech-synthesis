@@ -2,6 +2,7 @@ import { LitElement, html, css, PropertyValueMap } from 'lit'
 import { customElement, property, query, state } from 'lit/decorators.js'
 import '@material/mwc-snackbar'
 import '@material/mwc-button'
+import '@material/mwc-icon-button'
 import '@material/mwc-textarea'
 import { TextArea } from '@material/mwc-textarea'
 // import '@material/mwc-icon-button'
@@ -69,12 +70,15 @@ export class AppContainer extends LitElement {
 
   render () {
     return html`
-    <mwc-select style="--mdc-theme-surface: white"
-      @selected=${e=>{this.onProjectSelectChange(e)}}>
-      ${this.projects.map(p => {
-        return html`<mwc-list-item value=${p.name}>${p.name}</mwc-list-item>`
-      })}
-    </mwc-select>
+    <div style="display:flex;align-items:center">
+      <mwc-select style="--mdc-theme-surface: white"
+        @selected=${e=>{this.onProjectSelectChange(e)}}>
+        ${this.projects.map(p => {
+          return html`<mwc-list-item value=${p.name}>${p.name}</mwc-list-item>`
+        })}
+      </mwc-select>
+      <mwc-icon-button icon=add @click=${()=>{this.addNewProject()}}></mwc-icon-button>
+    </div>
 
     <mwc-textarea rows=12
       @keyup=${(e) => {this.onTextAreaKeyup(e)}}></mwc-textarea>
@@ -126,6 +130,26 @@ export class AppContainer extends LitElement {
 
   onCopyListButtonClick () {
     copyToClipBoard(JSON.stringify(this.projects))
+  }
+
+  async addNewProject () {
+    const name = prompt('name of the new list')
+    if (name) {
+      if (this.projects.some(p=>p.name==name)) {
+        window.toast('this name already exists')
+        return
+      }
+      else {
+        this.projects.push({
+          name,
+          wordsList: []
+        })
+        this.requestUpdate()
+        await this.select.updateComplete
+        this.select.select(this.projects.length - 1)
+        this.saveData()
+      }
+    }
   }
 
   onTextAreaKeyup(e: KeyboardEvent) {
