@@ -166,6 +166,8 @@ export class AppContainer extends LitElement {
       const paste = (e as ClipboardEvent).clipboardData!.getData('text')
       this.projects[this.selectedProjectIndex].wordsList.push(paste)
       this.textarea.value = this.projects[this.selectedProjectIndex].wordsList.join('\n')
+      this.textarea.scrollTop = this.textarea.scrollHeight;
+      this.saveData()
     })
   }
 
