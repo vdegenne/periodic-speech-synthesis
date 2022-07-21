@@ -161,6 +161,12 @@ export class AppContainer extends LitElement {
         }
       }
     })
+
+    window.addEventListener('paste', (e)=>{
+      const paste = (e as ClipboardEvent).clipboardData!.getData('text')
+      this.projects[this.selectedProjectIndex].wordsList.push(paste)
+      this.textarea.value = this.projects[this.selectedProjectIndex].wordsList.join('\n')
+    })
   }
 
   onProjectSelectChange (e) {
