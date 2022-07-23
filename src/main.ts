@@ -14,7 +14,7 @@ import { Slider } from '@material/mwc-slider'
 // import '@material/mwc-checkbox'
 import { isFullJapanese } from "asian-regexps";
 import copyToClipBoard from "@vdegenne/clipboard-copy";
-import { googleImageSearch, jisho, playJapaneseAudio } from './util'
+import { googleImageSearch, jisho, playJapaneseAudio, sleep } from './util'
 import '@material/mwc-select'
 import '@material/mwc-list'
 import { Select } from '@material/mwc-select'
@@ -39,6 +39,7 @@ export class AppContainer extends LitElement {
   @state() private selectedProjectIndex = 0
   private _historyList: string[] = [];
   @state() pauseTimeS = 60;
+  @state() howManyTimes = 2;
   private _timeout?: NodeJS.Timeout;
   @state() currentWord?: string;
 
@@ -117,7 +118,7 @@ export class AppContainer extends LitElement {
 
     <mwc-dialog style="--mdc-dialog-min-width:calc(100vw - 24px)"
         @opened=${e=>{this.slider.layout()}}>
-      <p>pause between (seconds)</p>
+      <p>Pause between (seconds)</p>
       <mwc-slider
         discrete
         withTickMarks
@@ -125,6 +126,16 @@ export class AppContainer extends LitElement {
         max=100
         value=${this.pauseTimeS}
         @change=${e=>{this.pauseTimeS = e.detail.value}}
+      ></mwc-slider>
+
+      <p>How many times</p>
+      <mwc-slider
+        discrete
+        withTickMarks
+        min=1
+        max=10
+        value=${this.howManyTimes}
+        @change=${e=>{this.howManyTimes = e.detail.value}}
       ></mwc-slider>
 
       <mwc-button unelevated slot=primaryAction
@@ -283,7 +294,14 @@ export class AppContainer extends LitElement {
 
     this._timeout = setTimeout(async () => {
       if (this.running) {
-        await this.playOneWord()
+        for (let i = 0; i < this.howManyTimes; ++i) {
+          if (!this.running) { return }
+          if (i !== 0) {
+            await sleep(2000)
+          }
+          if (!this.running) { return }
+          await this.playOneWord()
+        }
         if (this.running) {
           this.runTimeout()
         }

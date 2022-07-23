@@ -61,6 +61,10 @@ export async function playJapaneseAudio(word: string) {
   }
 }
 
+export async function sleep (ms = 1000) {
+  await new Promise(r=>setTimeout(r,ms))
+}
+
 
 
 export function googleImageSearch (word: string) {
