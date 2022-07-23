@@ -44,7 +44,7 @@ export class AppContainer extends LitElement {
   @state() currentWord?: string;
 
   @query('textarea') textarea!: HTMLTextAreaElement;
-  @query('mwc-slider') slider!: Slider;
+  // @query('mwc-slider') slider!: Slider;
   @query('mwc-dialog') dialog!: Dialog;
   @query('mwc-select') select!: Select;
 
@@ -110,6 +110,9 @@ export class AppContainer extends LitElement {
         <span style="margin-right:12px;font-size:2em">${this.currentWord}</span>
         <mwc-icon-button icon=volume_up @click=${()=>{playJapaneseAudio(this.currentWord!)}}></mwc-icon-button>
         <mwc-icon-button icon=image @click=${()=>{googleImageSearch(this.currentWord!)}}></mwc-icon-button>
+        <mwc-icon-button @click=${()=>{jisho(this.currentWord!)}}>
+          <img src="./img/jisho.ico" width=24>
+        </mwc-icon-button>
         <!-- <mwc-button oultined
             @click=${()=>{playJapaneseAudio(this.currentWord!);this.textarea.focus()}}>${this.currentWord}</mwc-button> -->
       </div>`
@@ -117,7 +120,7 @@ export class AppContainer extends LitElement {
 
 
     <mwc-dialog style="--mdc-dialog-min-width:calc(100vw - 24px)"
-        @opened=${e=>{this.slider.layout()}}>
+        @opened=${e=>{this.shadowRoot!.querySelectorAll('mwc-slider').forEach(el=>el.layout())}}>
       <p>Pause between (seconds)</p>
       <mwc-slider
         discrete
@@ -232,8 +235,7 @@ export class AppContainer extends LitElement {
       if (this.dialog.open) {
         this.running = true
         this.dialog.close()
-        this.playOneWord()
-        this.runTimeout()
+        this.runTimeout(true)
       }
       else {
         this.dialog.show()
@@ -289,24 +291,26 @@ export class AppContainer extends LitElement {
     } catch (e) {}
   }
 
-  runTimeout () {
+  runTimeout (prerun = false) {
     if (!this.running) { return }
 
-    this._timeout = setTimeout(async () => {
-      if (this.running) {
-        for (let i = 0; i < this.howManyTimes; ++i) {
-          if (!this.running) { return }
-          if (i !== 0) {
-            await sleep(2000)
-          }
-          if (!this.running) { return }
-          await this.playOneWord()
+    this._timeout = setTimeout(async ()=>{
+      if (!this.running) { return }
+      let word = await this.pickRandomWord()
+      this.currentWord = word
+      this._historyList.push(word)
+      for (let i = 0; i < this.howManyTimes; ++i) {
+        if (!this.running) { return }
+        if (i !== 0) {
+          await sleep(3000)
         }
-        if (this.running) {
-          this.runTimeout()
-        }
+        if (!this.running) { return }
+        await this.playWord(word)
       }
-    }, this.pauseTimeS * 1000)
+      if (this.running) {
+        this.runTimeout()
+      }
+    }, prerun ? 0 : this.pauseTimeS * 1000)
   }
 
   clearTimeout () {
@@ -316,21 +320,21 @@ export class AppContainer extends LitElement {
     }
   }
 
-  async playOneWord () {
+  pickRandomWord () {
     let candidates = this.projects[this.selectedProjectIndex].wordsList.filter(w=>!this._historyList.includes(w))
     if (candidates.length == 0) {
       this._historyList = []
       candidates = this.projects[this.selectedProjectIndex].wordsList
     }
-    const word = candidates[~~(Math.random() * candidates.length)]
-    this.currentWord = word
+    return candidates[~~(Math.random() * candidates.length)]
+  }
+
+  async playWord (word: string) {
     if (word && isFullJapanese(word)) {
       document.title = word
       await playJapaneseAudio(word)
     }
-    this._historyList.push(word)
-
-    await this.updateComplete
+    // await this.updateComplete
     // this.selectLineFromWord(word)
   }
 
